@@ -4,8 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "start": "tsc-watch --onSuccess \"nodemon dist/app.js\"",
-    "postinstall": "npm rebuild tsc-watch"
+    "start": "tsc && node dist/app.js"
   },
   "keywords": [],
   "author": "",
