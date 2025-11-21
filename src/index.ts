@@ -9,70 +9,37 @@ app.use(express.static(path.join(__dirname, "../public")));
 
 type TUser = {
   name: string;
-  email: string;
+  todos: string[];
 };
 
+// In-memory storage for now (you can later connect this to a file for task 5)
 let users: TUser[] = [];
 
-//1
-app.get("/", (req, res) => {
-  res.json({ message: "Server is running" });
-});
+// Route to add todo
+app.post("/add", (req, res) => {
+  const { name, todo } = req.body as { name?: string; todo?: string };
 
-app.get("/hello", (req, res) => {
-  res.json({
-    msg: "Hello world!",
-  });
-});
-
-//2
-app.get("/echo/:id", (req, res) => {
-  res.json({
-    id: req.params.id,
-  });
-});
-
-//3
-app.post("/sum", (req, res) => {
-  const { numbers } = req.body;
-
-  if (!Array.isArray(numbers)) {
-    return res.status(400).json({
-      error: "Request body must contain a 'numbers' array",
-    });
+  if (!name || !todo) {
+    return res.status(400).send("Name and todo are required.");
   }
 
-  if (!numbers.every((num) => typeof num === "number")) {
-    return res.status(400).json({
-      error: "All elements in 'numbers' must be numbers",
-    });
+  // Check if user already exists
+  let user = users.find((u) => u.name === name);
+
+  if (user) {
+    // Append todo to existing user
+    user.todos.push(todo);
+  } else {
+    // Create new user
+    const newUser: TUser = {
+      name,
+      todos: [todo],
+    };
+    users.push(newUser);
   }
 
-  const sum = numbers.reduce((total, num) => total + num, 0);
-
-  res.json({
-    sum: sum,
-  });
-});
-
-//4
-app.post("/users", (req, res) => {
-  const { name, email } = req.body;
-
-  // Validation
-  if (!name || !email) {
-    return res.status(400).json({
-      error: "Name and email are required",
-    });
-  }
-
-  // Create new user
-  const newUser: TUser = { name, email };
-  users.push(newUser);
-
-  res.json({
-    message: "User successfully added",
-  });
+  // Response text must match assignment
+  res.send(`Todo added successfully for user ${name}.`);
 });
 
 app.listen(PORT, () => {

@@ -1,33 +1,32 @@
 document
-  .getElementById("userForm")
-  .addEventListener("submit", async function (event) {
+  .getElementById("todoForm")
+  .addEventListener("submit", async (event) => {
     event.preventDefault();
 
-    const name = document.getElementById("name").value;
-    const email = document.getElementById("email").value;
+    const name = document.getElementById("userInput").value.trim();
+    const todo = document.getElementById("todoInput").value.trim();
+    const messageEl = document.getElementById("message");
+
+    if (!name || !todo) {
+      messageEl.textContent = "Please enter both name and todo.";
+      return;
+    }
 
     try {
-      const response = await fetch("/users", {
+      const res = await fetch("/add", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ name, email }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, todo }),
       });
 
-      const result = await response.json();
+      const text = await res.text();
+      messageEl.textContent = text;
 
-      if (response.ok) {
-        document.getElementById("message").textContent = result.message;
-        document.getElementById("message").style.color = "green";
-        document.getElementById("userForm").reset();
-      } else {
-        document.getElementById("message").textContent = result.error;
-        document.getElementById("message").style.color = "red";
+      if (res.ok) {
+        document.getElementById("userInput").value = "";
+        document.getElementById("todoInput").value = "";
       }
-    } catch (error) {
-      document.getElementById("message").textContent =
-        "Error: " + error.message;
-      document.getElementById("message").style.color = "red";
+    } catch (err) {
+      messageEl.textContent = "Error: " + err.message;
     }
   });
