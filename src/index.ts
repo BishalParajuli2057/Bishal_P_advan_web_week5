@@ -7,39 +7,71 @@ const PORT = 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
 
-type TUser = {
+export type TUser = {
   name: string;
   todos: string[];
 };
 
-// In-memory storage for now (you can later connect this to a file for task 5)
 let users: TUser[] = [];
 
-// Route to add todo
+// Add todo
 app.post("/add", (req, res) => {
-  const { name, todo } = req.body as { name?: string; todo?: string };
+  const { name, todo } = req.body;
 
   if (!name || !todo) {
     return res.status(400).send("Name and todo are required.");
   }
 
-  // Check if user already exists
   let user = users.find((u) => u.name === name);
 
   if (user) {
-    // Append todo to existing user
     user.todos.push(todo);
   } else {
-    // Create new user
-    const newUser: TUser = {
-      name,
-      todos: [todo],
-    };
-    users.push(newUser);
+    users.push({ name, todos: [todo] });
   }
 
-  // Response text must match assignment
   res.send(`Todo added successfully for user ${name}.`);
+});
+
+// Fetch todos
+app.get("/todos/:id", (req, res) => {
+  const name = req.params.id;
+
+  const user = users.find((u) => u.name === name);
+
+  if (!user) return res.status(404).send("User not found");
+
+  res.json(user.todos);
+});
+
+// Delete user
+app.delete("/delete", (req, res) => {
+  const { name } = req.body;
+
+  const index = users.findIndex((u) => u.name === name);
+
+  if (index === -1) return res.status(404).send("User not found");
+
+  users.splice(index, 1);
+
+  res.send("User deleted successfully.");
+});
+
+// Delete single todo
+app.put("/update", (req, res) => {
+  const { name, todoIndex } = req.body;
+
+  const user = users.find((u) => u.name === name);
+
+  if (!user) return res.status(404).send("User not found");
+
+  if (todoIndex < 0 || todoIndex >= user.todos.length) {
+    return res.status(400).send("Invalid todo index.");
+  }
+
+  user.todos.splice(todoIndex, 1);
+
+  res.send("Todo deleted successfully.");
 });
 
 app.listen(PORT, () => {
