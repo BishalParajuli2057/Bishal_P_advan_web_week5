@@ -1,85 +1,138 @@
+import express from "express";
 import path from "path";
-import express, { Express } from "express";
+import mongoose from "mongoose";
 import { User } from "./models/User";
-import mongoose, { Connection } from "mongoose";
 
 const app = express();
 const PORT = 3000;
 
+// Middlewares
 app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
 app.use(express.static(path.join(__dirname, "../public")));
 
 const mongoDB: string = "mongodb://127.0.0.1:27017/testdb";
-mongoose.connect(mongoDB);
-mongoose.Promise = Promise;
-const db: Connection = mongoose.connection;
-db.on("error", console.error.bind(console, "MongoDB connection error:"));
 
-export type TUser = {
-  name: string;
-  todos: string[];
-};
+mongoose
+  .connect(mongoDB)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
-let users: TUser[] = [];
+// =======================
+//  POST /add  (Task 1)
+// =======================
+app.post("/add", async (req, res) => {
+  try {
+    const { name, todo } = req.body;
 
-// Add todo
-app.post("/add", (req, res) => {
-  const { name, todo } = req.body;
+    if (!name || !todo) {
+      return res.status(400).send("Name and todo are required.");
+    }
 
-  if (!name || !todo) {
-    return res.status(400).send("Name and todo are required.");
+    // Find existing user
+    let user = await User.findOne({ name });
+
+    if (!user) {
+      // Create new user with first todo
+      user = new User({
+        name,
+        todos: [{ todo }],
+      });
+    } else {
+      // Add todo to existing user
+      user.todos.push({ todo });
+    }
+
+    await user.save();
+
+    res.send(`Todo added successfully for user ${name}.`);
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error adding todo.");
   }
-
-  let user = users.find((u) => u.name === name);
-
-  if (user) {
-    user.todos.push(todo);
-  } else {
-    users.push({ name, todos: [todo] });
-  }
-
-  res.send(`Todo added successfully for user ${name}.`);
 });
 
-// Fetch todos
-app.get("/todos/:id", (req, res) => {
-  const name = req.params.id;
+// ===========================
+//  GET /todos/:name
+//  (used by frontend search)
+// ===========================
+app.get("/todos/:name", async (req, res) => {
+  try {
+    const name = req.params.name;
+    const user = await User.findOne({ name });
 
-  const user = users.find((u) => u.name === name);
+    if (!user) {
+      return res.status(404).send("User not found");
+    }
 
-  if (!user) return res.status(404).send("User not found");
-
-  res.json(user.todos);
-});
-
-// Delete user
-app.delete("/delete", (req, res) => {
-  const { name } = req.body;
-
-  const index = users.findIndex((u) => u.name === name);
-
-  if (index === -1) return res.status(404).send("User not found");
-
-  users.splice(index, 1);
-
-  res.send("User deleted successfully.");
-});
-
-// Delete single todo
-app.put("/update", (req, res) => {
-  const { name, todoIndex } = req.body;
-
-  const user = users.find((u) => u.name === name);
-
-  if (!user) return res.status(404).send("User not found");
-
-  if (todoIndex < 0 || todoIndex >= user.todos.length) {
-    return res.status(400).send("Invalid todo index.");
+    // Frontend expects an array of strings, not objects
+    const todosAsStrings = user.todos.map((t) => t.todo);
+    res.send(JSON.stringify(todosAsStrings));
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error fetching todos.");
   }
+});
 
-  user.todos.splice(todoIndex, 1);
+// =======================
+//  DELETE /delete (user)
+// =======================
+app.delete("/delete", async (req, res) => {
+  try {
+    const { name } = req.body;
 
-  res.send("Todo deleted successfully.");
+    if (!name) {
+      return res.status(400).send("Name is required.");
+    }
+
+    const result = await User.deleteOne({ name });
+
+    if (result.deletedCount === 0) {
+      return res.status(404).send("User not found");
+    }
+
+    res.send("User deleted successfully.");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error deleting user.");
+  }
+});
+
+// ======================================
+//  PUT /update – delete single todo item
+// ======================================
+app.put("/update", async (req, res) => {
+  try {
+    const { name, todoIndex } = req.body;
+
+    if (typeof name !== "string" || todoIndex === undefined) {
+      return res.status(400).send("Name and todoIndex are required.");
+    }
+
+    const index = Number(todoIndex);
+
+    if (isNaN(index)) {
+      return res.status(400).send("Invalid todo index.");
+    }
+
+    const user = await User.findOne({ name });
+
+    if (!user) {
+      return res.status(404).send("User not found");
+    }
+
+    if (index < 0 || index >= user.todos.length) {
+      return res.status(400).send("Invalid todo index.");
+    }
+
+    user.todos.splice(index, 1);
+    await user.save();
+
+    res.send("Todo deleted successfully.");
+  } catch (err) {
+    console.error(err);
+    res.status(500).send("Error deleting todo.");
+  }
 });
 
 app.listen(PORT, () => {
