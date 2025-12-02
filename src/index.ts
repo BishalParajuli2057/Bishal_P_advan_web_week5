@@ -1,11 +1,19 @@
-import express from "express";
 import path from "path";
+import express, { Express } from "express";
+import { User } from "./models/User";
+import mongoose, { Connection } from "mongoose";
 
 const app = express();
 const PORT = 3000;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../public")));
+
+const mongoDB: string = "mongodb://127.0.0.1:27017/testdb";
+mongoose.connect(mongoDB);
+mongoose.Promise = Promise;
+const db: Connection = mongoose.connection;
+db.on("error", console.error.bind(console, "MongoDB connection error:"));
 
 export type TUser = {
   name: string;
